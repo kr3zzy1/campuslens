@@ -4,27 +4,40 @@ import { useState } from "react"
 import { GraduationCap } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { SearchBar } from "@/components/search-bar"
+import { AnimatedBackground } from "@/components/animated-background"
+import { UniversityPicker } from "@/components/university-picker"
 import { LoadingChecklist } from "@/components/loading-checklist"
 import { CampusResults } from "@/components/campus-results"
+import type { University } from "@/lib/campus-data"
 
-type Stage = "search" | "loading" | "results"
+type Stage = "search" | "picker" | "loading" | "results"
 
 export default function Page() {
   const [stage, setStage] = useState<Stage>("search")
   const [query, setQuery] = useState("")
+  const [pickerLabel, setPickerLabel] = useState("")
+  const [pickerItems, setPickerItems] = useState<University[]>([])
 
-  function handleSearch(name: string) {
+  function handleSelectUniversity(name: string) {
     setQuery(name)
     setStage("loading")
+  }
+
+  function handleSelectLocation(label: string, universities: University[]) {
+    setPickerLabel(label)
+    setPickerItems(universities)
+    setStage("picker")
   }
 
   function handleReset() {
     setStage("search")
     setQuery("")
+    setPickerItems([])
+    setPickerLabel("")
   }
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="relative min-h-svh bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <button
@@ -41,25 +54,44 @@ export default function Page() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4">
-        {stage === "search" && (
-          <div className="flex min-h-[calc(100svh-3.5rem)] items-center justify-center py-16">
-            <SearchBar onSearch={handleSearch} />
-          </div>
-        )}
+      {stage === "search" && (
+        <>
+          <AnimatedBackground />
+          <main className="relative z-10 mx-auto flex min-h-[calc(100svh-3.5rem)] max-w-5xl items-center justify-center px-4 py-16">
+            <SearchBar
+              onSelectUniversity={handleSelectUniversity}
+              onSelectLocation={handleSelectLocation}
+            />
+          </main>
+        </>
+      )}
 
-        {stage === "loading" && (
-          <div className="flex min-h-[calc(100svh-3.5rem)] items-center justify-center py-16">
-            <LoadingChecklist onComplete={() => setStage("results")} />
-          </div>
-        )}
+      {stage !== "search" && (
+        <main className="mx-auto max-w-5xl px-4">
+          {stage === "picker" && (
+            <div className="py-8 sm:py-10">
+              <UniversityPicker
+                label={pickerLabel}
+                universities={pickerItems}
+                onSelect={handleSelectUniversity}
+                onReset={handleReset}
+              />
+            </div>
+          )}
 
-        {stage === "results" && (
-          <div className="py-8 sm:py-10">
-            <CampusResults query={query} onReset={handleReset} />
-          </div>
-        )}
-      </main>
+          {stage === "loading" && (
+            <div className="flex min-h-[calc(100svh-3.5rem)] items-center justify-center py-16">
+              <LoadingChecklist onComplete={() => setStage("results")} />
+            </div>
+          )}
+
+          {stage === "results" && (
+            <div className="py-8 sm:py-10">
+              <CampusResults query={query} onReset={handleReset} />
+            </div>
+          )}
+        </main>
+      )}
     </div>
   )
 }

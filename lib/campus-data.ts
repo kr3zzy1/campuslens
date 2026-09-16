@@ -261,6 +261,19 @@ export function getUniversityProfile(name: string): UniversityProfile {
     }
   }
 
+  const listed = UNIVERSITIES.find(
+    (u) =>
+      u.name.toLowerCase() === key ||
+      u.shortName?.toLowerCase() === key,
+  )
+  if (listed) {
+    return {
+      name: listed.name,
+      city: `${listed.city}, ${listed.country}`,
+      description: `A visual profile assembled from public sources for ${listed.name} in ${listed.city}, ${listed.country}. Photos below are grouped by area and labelled with a confidence level so you can judge each one. Verification is based on source domains, captions, and geotags — not every image could be independently confirmed.`,
+    }
+  }
+
   return {
     name: trimmed || "Unknown University",
     city: "City not confirmed",
@@ -277,3 +290,195 @@ export function getCampusPhotos(_name: string): CampusPhoto[] {
 }
 
 export const EXAMPLE_UNIVERSITIES = ["MIT", "Stanford", "KBTU", "Oxford"]
+
+/* -------------------------------------------------------------------------- */
+/* University directory (for autocomplete + city/country search)              */
+/* -------------------------------------------------------------------------- */
+
+export type University = {
+  id: string
+  name: string
+  shortName?: string
+  city: string
+  country: string
+  thumbnailUrl: string
+  backgroundUrl: string
+}
+
+/**
+ * Mock directory shaped like a future API/DB table. Thumbnails and background
+ * photos use picsum placeholders keyed by a stable index so a real dataset can
+ * be swapped in without touching the UI.
+ */
+export const UNIVERSITIES: University[] = [
+  ["mit", "Massachusetts Institute of Technology", "MIT", "Cambridge", "United States"],
+  ["harvard", "Harvard University", "Harvard", "Cambridge", "United States"],
+  ["stanford", "Stanford University", "Stanford", "Stanford", "United States"],
+  ["berkeley", "University of California, Berkeley", "UC Berkeley", "Berkeley", "United States"],
+  ["ucla", "University of California, Los Angeles", "UCLA", "Los Angeles", "United States"],
+  ["caltech", "California Institute of Technology", "Caltech", "Pasadena", "United States"],
+  ["princeton", "Princeton University", "Princeton", "Princeton", "United States"],
+  ["yale", "Yale University", "Yale", "New Haven", "United States"],
+  ["columbia", "Columbia University", "Columbia", "New York", "United States"],
+  ["nyu", "New York University", "NYU", "New York", "United States"],
+  ["chicago", "University of Chicago", "UChicago", "Chicago", "United States"],
+  ["michigan", "University of Michigan", "UMich", "Ann Arbor", "United States"],
+  ["oxford", "University of Oxford", "Oxford", "Oxford", "United Kingdom"],
+  ["cambridge", "University of Cambridge", "Cambridge", "Cambridge", "United Kingdom"],
+  ["imperial", "Imperial College London", "Imperial", "London", "United Kingdom"],
+  ["ucl", "University College London", "UCL", "London", "United Kingdom"],
+  ["lse", "London School of Economics", "LSE", "London", "United Kingdom"],
+  ["edinburgh", "University of Edinburgh", "Edinburgh", "Edinburgh", "United Kingdom"],
+  ["manchester", "University of Manchester", "Manchester", "Manchester", "United Kingdom"],
+  ["toronto", "University of Toronto", "UofT", "Toronto", "Canada"],
+  ["mcgill", "McGill University", "McGill", "Montreal", "Canada"],
+  ["ubc", "University of British Columbia", "UBC", "Vancouver", "Canada"],
+  ["waterloo", "University of Waterloo", "Waterloo", "Waterloo", "Canada"],
+  ["ethz", "ETH Zurich", "ETH", "Zurich", "Switzerland"],
+  ["epfl", "EPFL", "EPFL", "Lausanne", "Switzerland"],
+  ["tum", "Technical University of Munich", "TUM", "Munich", "Germany"],
+  ["lmu", "Ludwig Maximilian University of Munich", "LMU", "Munich", "Germany"],
+  ["sorbonne", "Sorbonne University", "Sorbonne", "Paris", "France"],
+  ["psl", "PSL University", "PSL", "Paris", "France"],
+  ["delft", "Delft University of Technology", "TU Delft", "Delft", "Netherlands"],
+  ["ntu", "Nanyang Technological University", "NTU", "Singapore", "Singapore"],
+  ["nus", "National University of Singapore", "NUS", "Singapore", "Singapore"],
+  ["tokyo", "University of Tokyo", "UTokyo", "Tokyo", "Japan"],
+  ["kyoto", "Kyoto University", "Kyoto U", "Kyoto", "Japan"],
+  ["tsinghua", "Tsinghua University", "Tsinghua", "Beijing", "China"],
+  ["peking", "Peking University", "PKU", "Beijing", "China"],
+  ["hku", "University of Hong Kong", "HKU", "Hong Kong", "China"],
+  ["melbourne", "University of Melbourne", "Melbourne", "Melbourne", "Australia"],
+  ["sydney", "University of Sydney", "USyd", "Sydney", "Australia"],
+  ["kbtu", "Kazakh-British Technical University", "KBTU", "Almaty", "Kazakhstan"],
+].map(([id, name, shortName, city, country], i) => ({
+  id,
+  name,
+  shortName,
+  city,
+  country,
+  thumbnailUrl: `https://picsum.photos/seed/${id}/80/80`,
+  backgroundUrl: `https://picsum.photos/1600/900?random=${i + 1}`,
+}))
+
+export type LocationField = "city" | "country"
+export type SearchMode = "university" | LocationField
+
+export type LocationMatch = {
+  value: string
+  universities: University[]
+  thumbnailUrl: string
+}
+
+/** Substring, case-insensitive match on name, shortName, city, or country. */
+export function searchUniversities(query: string, limit = 8): University[] {
+  const q = query.trim().toLowerCase()
+  const matches = UNIVERSITIES.filter((u) => {
+    if (!q) return true
+    return [u.name, u.shortName, u.city, u.country]
+      .filter(Boolean)
+      .some((s) => (s as string).toLowerCase().includes(q))
+  })
+  return matches.slice(0, limit)
+}
+
+/** Group universities by city/country for the location-search autocomplete. */
+export function searchLocations(
+  query: string,
+  field: LocationField,
+  limit = 8,
+): LocationMatch[] {
+  const q = query.trim().toLowerCase()
+  const groups = new Map<string, University[]>()
+  for (const u of UNIVERSITIES) {
+    const key = u[field]
+    if (q && !key.toLowerCase().includes(q)) continue
+    const existing = groups.get(key)
+    if (existing) existing.push(u)
+    else groups.set(key, [u])
+  }
+  return [...groups.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([value, universities]) => ({
+      value,
+      universities,
+      thumbnailUrl: universities[0].thumbnailUrl,
+    }))
+}
+
+export function getUniversitiesByLocation(
+  value: string,
+  field: LocationField,
+): University[] {
+  return UNIVERSITIES.filter(
+    (u) => u[field].toLowerCase() === value.toLowerCase(),
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Student comments                                                           */
+/* -------------------------------------------------------------------------- */
+
+export type CampusComment = {
+  id: string
+  author: string
+  createdAt: number
+  text: string
+}
+
+const DAY = 86_400_000
+const HOUR = 3_600_000
+
+/** Seeded per-category comments. Keyed like a future `comments` table. */
+const MOCK_COMMENTS: Record<Category, CampusComment[]> = {
+  Dormitories: [
+    { id: "d1", author: "Maya R.", createdAt: Date.now() - 2 * DAY, text: "Older dorms have way more character but book early — the good rooms go fast." },
+    { id: "d2", author: "Jonas", createdAt: Date.now() - 9 * DAY, text: "Laundry situation is rough on weekends. Go on a weekday morning." },
+  ],
+  Classrooms: [
+    { id: "c1", author: "Priya", createdAt: Date.now() - 5 * HOUR, text: "The big lecture halls get cold, bring a hoodie even in summer." },
+    { id: "c2", author: "Tom W.", createdAt: Date.now() - 4 * DAY, text: "Smaller seminar rooms in the east wing are the best for group work." },
+    { id: "c3", author: "Ana", createdAt: Date.now() - 12 * DAY, text: "Projectors are hit or miss, arrive a few minutes early if you're presenting." },
+  ],
+  Library: [
+    { id: "l1", author: "Kenji", createdAt: Date.now() - 1 * DAY, text: "The library gets crowded near finals, come early to grab a good desk." },
+    { id: "l2", author: "Sofia", createdAt: Date.now() - 6 * DAY, text: "Top floor is silent study, ground floor is fine for chatting." },
+  ],
+  City: [
+    { id: "ci1", author: "Leo", createdAt: Date.now() - 3 * DAY, text: "Public transit from campus to downtown is quick and cheap. Get a student pass." },
+    { id: "ci2", author: "Hannah", createdAt: Date.now() - 15 * DAY, text: "Tons of affordable food spots a short walk from the main gate." },
+  ],
+  Sports: [
+    { id: "s1", author: "Marcus", createdAt: Date.now() - 7 * HOUR, text: "Gym is packed 5–7pm. Early mornings are basically empty." },
+    { id: "s2", author: "Yuki", createdAt: Date.now() - 8 * DAY, text: "Intramural leagues are super welcoming even if you've never played." },
+  ],
+  Labs: [
+    { id: "la1", author: "Dana", createdAt: Date.now() - 2 * DAY, text: "Lab access hours vary a lot by department — check with your advisor first." },
+    { id: "la2", author: "Omar", createdAt: Date.now() - 11 * DAY, text: "The newer research labs are impressive but you need a keycard to get in." },
+  ],
+  "Student Life": [
+    { id: "sl1", author: "Bea", createdAt: Date.now() - 6 * HOUR, text: "Club fair in the first week is the best way to meet people. Show up." },
+    { id: "sl2", author: "Ravi", createdAt: Date.now() - 5 * DAY, text: "Weekend campus events are underrated, especially the outdoor movie nights." },
+    { id: "sl3", author: "Elena", createdAt: Date.now() - 20 * DAY, text: "Coffee shop by the quad is the unofficial hangout for everyone." },
+  ],
+}
+
+export function getComments(category: Category): CampusComment[] {
+  return MOCK_COMMENTS[category] ?? []
+}
+
+export function formatRelativeTime(ms: number): string {
+  const diff = Math.max(0, Date.now() - ms)
+  const min = Math.round(diff / 60_000)
+  if (min < 1) return "just now"
+  if (min < 60) return `${min} minute${min === 1 ? "" : "s"} ago`
+  const hr = Math.round(min / 60)
+  if (hr < 24) return `${hr} hour${hr === 1 ? "" : "s"} ago`
+  const day = Math.round(hr / 24)
+  if (day < 30) return `${day} day${day === 1 ? "" : "s"} ago`
+  const month = Math.round(day / 30)
+  if (month < 12) return `${month} month${month === 1 ? "" : "s"} ago`
+  const year = Math.round(month / 12)
+  return `${year} year${year === 1 ? "" : "s"} ago`
+}

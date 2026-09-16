@@ -1,5 +1,6 @@
 import { ImageOff } from "lucide-react"
 import { PhotoCard } from "@/components/photo-card"
+import { CommentsSection } from "@/components/comments-section"
 import type { CampusPhoto, Category, Confidence } from "@/lib/campus-data"
 
 const CONFIDENCE_ORDER: Record<Confidence, number> = {
@@ -42,6 +43,8 @@ export function CategorySection({
           ))}
         </div>
       )}
+
+      <CommentsSection category={category} />
     </section>
   )
 }
